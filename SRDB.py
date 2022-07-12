@@ -30,6 +30,7 @@ def compute_uuid(input_str):
 def save_pending():
     while save_set:
         stateful = save_set.pop()
+        print(f"Saving {repr(stateful)} == {stateful}")
         stateful.save()
 
 class Stateful:
@@ -38,20 +39,19 @@ class Stateful:
         if id is None:
             self.refcounts_modified = True
             self.contents_modified  = True
+            self.contents_loaded    = True
             self.refcount = 0
             self.dict = {}
         else:
-            self.id = id
-            self.file_path = os.path.join(data_path, self.id)
+            self._set_id(id)
             self.refcount_modified = False
             self.contents_modified = False
+            self.contents_loaded   = False
             with open(self.file_path) as file:
                 self.refcount = int(file.read(19))
 
     def _set_id(self, id):
         self.id = id
-        self.refcount_modified = True
-        self.contents_modified = True
         self.file_path = os.path.join(data_path, self.id)
         return self
 
@@ -75,9 +75,11 @@ class Stateful:
         self.refcount_modified = True
         self.refcount -= 1
 
+    '''
     @classmethod
     def load(cls, query):
         return cls(compute_uuid(query))
+    '''
 
     def save(self):
         if self.refcount <= 0:
@@ -103,29 +105,45 @@ class Stateful:
     def __hash__(self):
         return int(self.id, base=16)
 
+    def load_contents_if_necessary(self):
+        if self.contents_loaded:
+            return
+        with open(self.file_path) as file:
+            self.load_from_file(file)
+        self.contents_loaded = True
+        print(f"Loaded {repr(self)} == {self}")
+
+    def register_change_in_contents(self):
+        self.load_contents_if_necessary()
+        self.contents_modified = True
+        save_set.add(self)
+
 class Dict(Stateful):
 
+    '''
     def __init__(self, id=None):
         super().__init__(id)
-        if id is not None:
-            with open(self.file_path) as file:
-                file.seek(20)
-                line = next(file)
-                self.dict = eval(line)
+    '''
+
+    def load_from_file(self, file):
+        file.seek(20)
+        line = next(file)
+        self.dict = eval(line)
 
     def stateful_children(self):
+        self.load_contents_if_necessary()
         return (value for value in self.dict.values() if isinstance(value, Stateful))
 
     def __str__(self):
+        self.load_contents_if_necessary()
         return repr(self.dict)
 
     def __getitem__(self, key):
+        self.load_contents_if_necessary()
         return self.dict[key]
 
     def __setitem__(self, key, value):
-        # Register that a change has occured
-        self.contents_modified = True
-        save_set.add(self)
+        self.register_change_in_contents()
         # Deal with the old value for that key (if it exists)
         try:
             old_value = self.dict[key]

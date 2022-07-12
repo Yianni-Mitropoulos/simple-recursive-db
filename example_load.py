@@ -1,7 +1,12 @@
 import SRDB
 
-B = SRDB.root["B"]
-print(B)
+my_small_dict = SRDB.root["my_small_dict"]
+print(my_small_dict.id)
+
+my_big_dict = SRDB.root["my_big_dict"]
+print(my_big_dict.id)
+print(my_big_dict["my_small_dict"])
+
 # SRDB.root["B"] = 3
 SRDB.save_pending()
 

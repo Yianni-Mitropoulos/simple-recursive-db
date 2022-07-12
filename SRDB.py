@@ -30,13 +30,14 @@ def compute_uuid(input_str):
 def save_pending():
     while save_set:
         stateful = save_set.pop()
-        print(f"Saving {repr(stateful)} == {stateful}")
+        print(f"Saving {repr(stateful)}")
         stateful.save()
 
 class Stateful:
 
     def __init__(self, id=None):
         if id is None:
+            self._set_id(generate_random_uuid())
             self.refcounts_modified = True
             self.contents_modified  = True
             self.contents_loaded    = True
@@ -52,9 +53,11 @@ class Stateful:
 
     def _set_id(self, id):
         self.id = id
-        self.file_path = os.path.join(data_path, self.id)
+        self.dir_path = os.path.join(data_path, self.id)
+        self.file_path = os.path.join(data_path, f"{self.id}.{type(self).__name__}")
         return self
 
+    '''
     def set_id_random(self):
         id = generate_random_uuid()
         self._set_id(id)
@@ -64,6 +67,7 @@ class Stateful:
         id = compute_uuid(input_str)
         self._set_id(id)
         return self
+    '''
 
     def incr_refcount(self):
         save_set.add(self)
@@ -88,7 +92,7 @@ class Stateful:
             for stateful_child in self.stateful_children():
                 stateful_child.decr_refcount()
         else:
-            # Kludgy solution to seek() being restricted to return values of tell()
+            # Kludgy solution to problem that Python restricts seek() to return values of tell()
             if self.contents_modified:
                 self.refcount_modified = True
             with open(self.file_path, 'w') as file:
@@ -111,7 +115,7 @@ class Stateful:
         with open(self.file_path) as file:
             self.load_from_file(file)
         self.contents_loaded = True
-        print(f"Loaded {repr(self)} == {self}")
+        print(f"Loaded {repr(self)}")
 
     def register_change_in_contents(self):
         self.load_contents_if_necessary()
@@ -119,11 +123,6 @@ class Stateful:
         save_set.add(self)
 
 class Dict(Stateful):
-
-    '''
-    def __init__(self, id=None):
-        super().__init__(id)
-    '''
 
     def load_from_file(self, file):
         file.seek(20)
@@ -157,6 +156,38 @@ class Dict(Stateful):
             value.incr_refcount()
         # And finally, insert the value
         self.dict[key] = value
+
+class Bigd(Dict):
+
+    def __init__(self, id=None):
+        super().__init__()
+        if id is None:
+            try:
+                os.mkdir(self.dir_path)
+            except Exception as e:
+                print(f"Directory already exists {e}")
+
+    def set_type(self, t):
+        if not isinstance(t, str):
+            t = t.__name__
+        super().__setitem__("type", t)
+
+    def __getitem__(self, key):
+        assert isinstance(key, str)
+        hex_digest = compute_uuid(key)
+        try:
+            with open(os.path.join(self.dir_path, hex_digest)) as file:
+                data = file.readline().strip()
+            return eval(f"{self.dict['type']}({data})")
+        except:
+            raise KeyError
+
+    def __setitem__(self, key, value):
+        assert isinstance(key, str)
+        assert type(value).__name__ == self.dict["type"]
+        hex_digest = compute_uuid(key)
+        with open(os.path.join(self.dir_path, hex_digest), "w") as file:
+            file.write(value.id)
 
 save_set = set()
 data_path = os.path.join(os.getcwd(), "SRDB_statefuls")

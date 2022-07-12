@@ -1,16 +1,16 @@
 import SRDB
 
-A = SRDB.Dict().set_id_random()
+A = SRDB.Dict()
 A["x"] = 1
 A["y"] = 2
 
-B = SRDB.Dict().set_id_random()
+B = SRDB.Dict()
 B["foo"] = 3
 B["bar"] = A
 
-SRDB.root["B"] = B
-# access_point = SRDB.Dict().set_id_computed('student/email_addr=yianni.mitropoulos@gmail.com')
-# access_point["target"] = B
-# access_point.refcount = 1
+SRDB.root["my_small_dict"] = B
+SRDB.root["my_big_dict"] = SRDB.Bigd()
+SRDB.root["my_big_dict"].set_type("Dict")
+SRDB.root["my_big_dict"]["foo"] = B
 
 SRDB.save_pending()

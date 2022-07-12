@@ -1,5 +1,5 @@
 import SRDB
 
 s = SRDB.Dict.load('student/email_addr=yianni.mitropoulos@gmail.com')
-print(s)
-print(s['target'])
+s.decr_refcount()
+SRDB.save_pending()

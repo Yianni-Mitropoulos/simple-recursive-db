@@ -27,21 +27,31 @@ def compute_uuid(input_str):
         digest_size=ID_SIZE_IN_BYTES
     ).hexdigest()
 
+def save_pending():
+    while save_set:
+        stateful = save_set.pop()
+        stateful.save()
+
 class Stateful:
 
     def __init__(self, id=None):
-        self.savelist = []
         if id is None:
+            self.refcounts_modified = True
+            self.contents_modified  = True
             self.refcount = 0
             self.dict = {}
-            self.new = True
         else:
             self.id = id
             self.file_path = os.path.join(data_path, self.id)
-            self.new = False
+            self.refcount_modified = False
+            self.contents_modified = False
+            with open(self.file_path) as file:
+                self.refcount = int(file.read(19))
 
     def __set_id(self, id):
         self.id = id
+        self.refcount_modified = True
+        self.contents_modified = True
         self.file_path = os.path.join(data_path, self.id)
 
     def set_id_random(self):
@@ -54,30 +64,56 @@ class Stateful:
         self.__set_id(id)
         return self
 
+    def incr_refcount(self):
+        save_set.add(self)
+        self.refcount_modified = True
+        self.refcount += 1
+    
+    def decr_refcount(self):
+        save_set.add(self)
+        self.refcount_modified = True
+        self.refcount -= 1
+
     @classmethod
     def load(cls, query):
         return cls(compute_uuid(query))
 
     def save(self):
-        for stateful in self.savelist:
-            stateful.save()
-        with open(self.file_path, 'w') as file:
-            file.write(f"{self.refcount:019} ")
-            file.write(str(self))
+        if self.refcount <= 0:
+            if os.path.isfile(self.file_path):
+                os.remove(self.file_path)
+            for stateful_child in self.stateful_children():
+                stateful_child.decr_refcount()
+        else:
+            # Kludgy solution to seek() being restricted to return values of tell()
+            if self.contents_modified:
+                self.refcount_modified = True
+            with open(self.file_path, 'w') as file:
+                if self.refcount_modified:
+                    file.write(f"{self.refcount:019} ")
+                if self.contents_modified:
+                    file.write(str(self))
+        self.refcount_modified = False
+        self.contents_modified = False
 
     def __repr__(self):
         return f'{type(self).__name__}("{self.id}")'
+
+    def __hash__(self):
+        return int(self.id, base=16)
 
 class Dict(Stateful):
 
     def __init__(self, id=None):
         super().__init__(id)
-        if not self.new:
+        if id is not None:
             with open(self.file_path) as file:
-                self.refcount = int(file.read(19))
                 file.seek(20)
                 line = next(file)
                 self.dict = eval(line)
+
+    def stateful_children(self):
+        return (value for value in self.dict.values() if isinstance(value, Stateful))
 
     def __str__(self):
         return repr(self.dict)
@@ -86,21 +122,25 @@ class Dict(Stateful):
         return self.dict[key]
 
     def __setitem__(self, key, value):
+        # Register that a change has occured
+        self.contents_modified = True
+        save_set.add(self)
+        # Deal with the old value for that key (if it exists)
         try:
             old_value = self.dict[key]
-            old_value.refcount -= 1
-            self.savelist.append(old_value)
-        except:
+        except KeyError:
             pass
-        try:
-            value.refcount += 1
-            self.savelist.append(value)
-        except:
-            pass
+        else:
+            if isinstance(old_value, Stateful):
+                old_value.decr_refcount()
+        # Deal with the new value for that key
+        if isinstance(value, Stateful):
+            value.incr_refcount()
+        # And finally, insert the value
         self.dict[key] = value
 
+save_set = set()
 data_path = os.path.join(os.getcwd(), "SRDB_statefuls")
-
 try:
     os.mkdir(data_path)
 except FileExistsError:

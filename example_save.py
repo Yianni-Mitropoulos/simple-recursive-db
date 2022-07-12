@@ -8,4 +8,5 @@ B["foo"] = 3
 B["bar"] = A
 access_point = SRDB.Dict().set_id_computed('student/email_addr=yianni.mitropoulos@gmail.com')
 access_point["target"] = B
-access_point.save()
+access_point.refcount = 1
+SRDB.save_pending()

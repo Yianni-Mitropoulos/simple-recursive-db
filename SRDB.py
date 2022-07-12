@@ -48,20 +48,21 @@ class Stateful:
             with open(self.file_path) as file:
                 self.refcount = int(file.read(19))
 
-    def __set_id(self, id):
+    def _set_id(self, id):
         self.id = id
         self.refcount_modified = True
         self.contents_modified = True
         self.file_path = os.path.join(data_path, self.id)
+        return self
 
     def set_id_random(self):
         id = generate_random_uuid()
-        self.__set_id(id)
+        self._set_id(id)
         return self
 
     def set_id_computed(self, input_str):
         id = compute_uuid(input_str)
-        self.__set_id(id)
+        self._set_id(id)
         return self
 
     def incr_refcount(self):
@@ -141,6 +142,13 @@ class Dict(Stateful):
 
 save_set = set()
 data_path = os.path.join(os.getcwd(), "SRDB_statefuls")
+
+try:
+    root = Dict(ZERO_ID)
+except Exception as e:
+    root = Dict()._set_id(ZERO_ID)
+    root.incr_refcount()
+
 try:
     os.mkdir(data_path)
 except FileExistsError:

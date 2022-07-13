@@ -67,8 +67,10 @@ class Stateful:
 
     def save(self):
         if self.refcount <= 0:
+            print(f"Deleting {self.id}")
             # This MUST come first or the code won't work
             for stateful_child in self.stateful_children():
+                print(f"Stateful child {stateful_child.id}")
                 stateful_child.decr_refcount()
             # This must come second or third
             if os.path.isfile(self.file_path):
@@ -77,14 +79,14 @@ class Stateful:
             self.finalize_save()
         else:
             # Kludgy solution to the problem of Python restricting seek() so that it only accepts return values of tell()
+            if self.contents_modified:
+                self.refcount_modified = True
+            # Do the work
             with open(self.file_path, 'w') as file:
-                file.write(f"{self.refcount:019} {str(self)}")
-                '''
                 if self.refcount_modified:
                     file.write(f"{self.refcount:019} ")
                 if self.contents_modified:
                     file.write(str(self))
-                '''
         self.refcount_modified = False
         self.contents_modified = False
 

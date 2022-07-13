@@ -1,12 +1,17 @@
 import SRDB
 
-my_dict = SRDB.Dict({
+# Phase 1
+fst_dict = SRDB.Dict({
     "x": 1,
     "y": 2
 })
-
-SRDB.root['foo'] = SRDB.Dict({'a': 1, 'b': 2})
-SRDB.root['bar'] = SRDB.root['foo']
+snd_dict = SRDB.Dict({
+    "A": 3,
+    "B": fst_dict
+})
+SRDB.root['fst'] = fst_dict
+SRDB.root['snd'] = snd_dict
+SRDB.save_pending()
 
 '''
 A = SRDB.Dict()
@@ -22,4 +27,3 @@ SRDB.root["my_big_dict"]["A"] = A
 SRDB.root["my_big_dict"]["B"] = B
 '''
 
-SRDB.save_pending()

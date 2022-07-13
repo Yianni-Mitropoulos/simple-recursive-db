@@ -1,7 +1,7 @@
 import SRDB
 
 # Phase 1
-if False:
+def f1():
     fst_dict = SRDB.Dict({
         "x": 1,
         "y": 2
@@ -13,32 +13,30 @@ if False:
     SRDB.root['fst'] = fst_dict
     SRDB.root['snd'] = snd_dict
     SRDB.root['my_table'] = SRDB.Table()
-    SRDB.root['my_table'].SET('hello', SRDB.root['snd'])
+    SRDB.SAVE_PENDING()
 
-if False:
-    SRDB.root['my_table'].SET('hello', [3,4,5])
+def f2():
+    SRDB.root['my_table'].SET('hello', SRDB.root['fst'])
 
-if True:
-    x = SRDB.root['my_table'].GET('hello')
+def f3():
+    SRDB.root['my_table'].SET('hello', [3, 4, 5])
+
+def f4():
+    SRDB.root['my_table'].SET('world', [1, 2])
+    SRDB.root['my_table'].SET('lol', SRDB.Dict({'y': 1, 'z': 8}))
+
+def f5():
+    x = SRDB.root['my_table'].get('hello')
     print(x, type(x))
 
-# SRDB.save_pending()
+# f1()
+# f2()
+# f3()
+# f1()
 
-# SRDB.root['my_table'].set('hello', fst_dict)
-# SRDB.root['my_table'].set('world', snd_dict)
-# SRDB.save_pending()
+f1()
+f2()
+f3()
+f1()
 
-'''
-A = SRDB.Dict()
-A["x"] = 1
-A["y"] = 2
-
-B = SRDB.Dict()
-B["foo"] = 3
-B["bar"] = A
-
-SRDB.root["my_big_dict"] = SRDB.Dict()
-SRDB.root["my_big_dict"]["A"] = A
-SRDB.root["my_big_dict"]["B"] = B
-'''
-
+# SRDB.root['my_table'].SET('hello', None)

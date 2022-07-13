@@ -28,7 +28,7 @@ def compute_uuid(input_str):
         digest_size=ID_SIZE_IN_BYTES
     ).hexdigest()
 
-def save_pending():
+def SAVE_PENDING():
     while save_set:
         stateful = save_set.pop()
         stateful.save()
@@ -181,7 +181,9 @@ class Table(Dict):
                 long_filename = os.path.join(self.dir_path, short_filename)
                 with open(long_filename) as file:
                     data = file.read()
-                    yield eval(data)
+                    obj = eval(data)
+                    if isinstance(obj, Stateful):
+                        yield obj
         return new_generator()
 
     def finalize_save(self):
@@ -197,9 +199,8 @@ class Table(Dict):
         print(self.dir_path)
         shutil.rmtree(self.dir_path)
 
-    def GET(self, key):
+    def get(self, key):
         assert isinstance(key, str)
-        save_pending()
         hex_digest = compute_uuid(key)
         try:
             with open(os.path.join(self.dir_path, hex_digest)) as file:
@@ -211,23 +212,22 @@ class Table(Dict):
 
     def SET(self, key, value):
         assert isinstance(key, str)
-        save_pending()
+        SAVE_PENDING()
         # Deal with old value
         try:
-            old_value = self[key]
+            old_value = self.get(key)
         except KeyError:
             pass
         else:
             if isinstance(old_value, Stateful):
                 old_value.decr_refcount()
-                old_value.save()
         # Deal with new value
         hex_digest = compute_uuid(key)
         with open(os.path.join(self.dir_path, hex_digest), "w") as file:
             file.write(repr(value))
         if isinstance(value, Stateful):
             value.incr_refcount()
-            value.save()
+        SAVE_PENDING()
 
 save_set = set()
 stateful_objects_tracker = dict()

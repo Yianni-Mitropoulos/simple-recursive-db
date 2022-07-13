@@ -8,9 +8,9 @@ B = SRDB.Dict()
 B["foo"] = 3
 B["bar"] = A
 
-SRDB.root["my_small_dict"] = B
-SRDB.root["my_big_dict"] = SRDB.Bigd()
+SRDB.root["my_big_dict"] = SRDB.Table()
 SRDB.root["my_big_dict"].set_type("Dict")
-SRDB.root["my_big_dict"]["foo"] = B
+SRDB.root["my_big_dict"]["foo"] = A
+SRDB.root["my_big_dict"]["bar"] = B
 
 SRDB.save_pending()

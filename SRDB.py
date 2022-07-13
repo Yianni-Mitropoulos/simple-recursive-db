@@ -30,104 +30,109 @@ def compute_uuid(input_str):
 def save_pending():
     while save_set:
         stateful = save_set.pop()
-        print(f"Saving {repr(stateful)}")
         stateful.save()
 
 class Stateful:
 
-    def __init__(self, id=None):
-        if id is None:
-            self._set_id(generate_random_uuid())
-            self.refcounts_modified = True
-            self.contents_modified  = True
-            self.contents_loaded    = True
-            self.refcount = 0
-            self.dict = {}
+    def __init__(self):
+        self._set_id(generate_random_uuid())
+        self.refcount_modified = True
+        self.contents_modified = True
+        self.contents_loaded   = True
+        self.refcount = 0
+        stateful_objects_tracker[self.id] = self
+
+    @classmethod
+    def from_id(cls, id):
+        if id in stateful_objects_tracker:
+            return stateful_objects_tracker[id]
         else:
-            self._set_id(id)
-            self.refcount_modified = False
-            self.contents_modified = False
-            self.contents_loaded   = False
-            with open(self.file_path) as file:
-                self.refcount = int(file.read(19))
+            retval = cls()
+            retval._set_id(id)
+            retval.refcount_modified = False
+            retval.contents_modified = False
+            retval.contents_loaded   = False
+            with open(retval.file_path, 'r') as file:
+                file_data = file.read()
+            retval.refcount = int(file_data[0:19])
+            retval.assemble_contents_from_data(file_data[20:])
+            stateful_objects_tracker[id] = retval
+            return retval
 
     def _set_id(self, id):
         self.id = id
-        self.dir_path = os.path.join(data_path, self.id)
+        self.dir_path  = os.path.join(data_path, self.id)
         self.file_path = os.path.join(data_path, f"{self.id}.{type(self).__name__}")
         return self
 
-    '''
-    def set_id_random(self):
-        id = generate_random_uuid()
-        self._set_id(id)
-        return self
-
-    def set_id_computed(self, input_str):
-        id = compute_uuid(input_str)
-        self._set_id(id)
-        return self
-    '''
-
-    def incr_refcount(self):
-        save_set.add(self)
-        self.refcount_modified = True
-        self.refcount += 1
-    
-    def decr_refcount(self):
-        save_set.add(self)
-        self.refcount_modified = True
-        self.refcount -= 1
-
-    '''
-    @classmethod
-    def load(cls, query):
-        return cls(compute_uuid(query))
-    '''
-
     def save(self):
         if self.refcount <= 0:
-            if os.path.isfile(self.file_path):
-                os.remove(self.file_path)
+            # This MUST come first or the code won't work
             for stateful_child in self.stateful_children():
                 stateful_child.decr_refcount()
+            # This must come second or third
+            if os.path.isfile(self.file_path):
+                os.remove(self.file_path)
+            # This must come second or third
+            self.finalize_save()
         else:
-            # Kludgy solution to problem that Python restricts seek() to return values of tell()
-            if self.contents_modified:
-                self.refcount_modified = True
+            # Kludgy solution to the problem of Python restricting seek() so that it only accepts return values of tell()
             with open(self.file_path, 'w') as file:
+                file.write(f"{self.refcount:019} {str(self)}")
+                '''
                 if self.refcount_modified:
                     file.write(f"{self.refcount:019} ")
                 if self.contents_modified:
                     file.write(str(self))
+                '''
         self.refcount_modified = False
         self.contents_modified = False
 
     def __repr__(self):
-        return f'{type(self).__name__}("{self.id}")'
+        return f'{type(self).__name__}.from_id("{self.id}")'
 
     def __hash__(self):
         return int(self.id, base=16)
 
+    def finalize_save(self):
+        pass
+
+    def incr_refcount(self):
+        save_set.add(self)
+        self.refcount += 1
+        self.refcount_modified = True
+    
+    def decr_refcount(self):
+        save_set.add(self)
+        self.refcount -= 1
+        self.refcount_modified = True
+
     def load_contents_if_necessary(self):
         if self.contents_loaded:
             return
-        with open(self.file_path) as file:
-            self.load_from_file(file)
+        with open(self.file_path, 'r') as file:
+            file_data = file.read()
+        self.assemble_contents_from_data(file_data[20:])
         self.contents_loaded = True
-        print(f"Loaded {repr(self)}")
 
     def register_change_in_contents(self):
-        self.load_contents_if_necessary()
-        self.contents_modified = True
+        assert self.contents_loaded
         save_set.add(self)
+        self.contents_modified = True
 
 class Dict(Stateful):
 
-    def load_from_file(self, file):
-        file.seek(20)
-        line = next(file)
-        self.dict = eval(line)
+    def __init__(self, d=None):
+        super().__init__()
+        if d is None:
+            self.dict = {}
+        else:
+            self.dict = d
+        for stateful_child in self.stateful_children():
+            stateful_child.incr_refcount()
+
+    def assemble_contents_from_data(self, data):
+        self.dict = eval(data)
 
     def stateful_children(self):
         self.load_contents_if_necessary()
@@ -142,6 +147,7 @@ class Dict(Stateful):
         return self.dict[key]
 
     def __setitem__(self, key, value):
+        self.load_contents_if_necessary()
         self.register_change_in_contents()
         # Deal with the old value for that key (if it exists)
         try:
@@ -157,53 +163,12 @@ class Dict(Stateful):
         # And finally, insert the value
         self.dict[key] = value
 
-class Table(Dict):
-
-    def __init__(self, id=None):
-        super().__init__(id)
-        if id is None:
-            try:
-                os.mkdir(self.dir_path)
-            except Exception:
-                print(f"Directory already exists ({self.id}, {self.dir_path})")
-
-    def set_type(self, t):
-        if not isinstance(t, str):
-            t = t.__name__
-        super().__setitem__("type", t)
-
-    def __getitem__(self, key):
-        assert isinstance(key, str)
-        hex_digest = compute_uuid(key)
-        try:
-            with open(os.path.join(self.dir_path, hex_digest)) as file:
-                data = file.readline().strip()
-        except Exception:
-            raise KeyError
-        else:
-            return eval(f"{super().__getitem__('type')}('{data}')")
-
-    def __setitem__(self, key, value):
-        assert isinstance(key, str)
-        assert type(value).__name__ == super().__getitem__('type')
-        # Deal with old value
-        try:
-            old_value = self[key]
-        except KeyError:
-            pass
-        else:
-            old_value.decr_refcount()
-        # Deal with new value
-        hex_digest = compute_uuid(key)
-        with open(os.path.join(self.dir_path, hex_digest), "w") as file:
-            file.write(value.id)
-        value.incr_refcount()
-
 save_set = set()
+stateful_objects_tracker = dict()
 data_path = os.path.join(os.getcwd(), "SRDB_statefuls")
 
 try:
-    root = Dict(ZERO_ID)
+    root = Dict.from_id(ZERO_ID)
 except Exception as e:
     root = Dict()._set_id(ZERO_ID)
     root.incr_refcount()

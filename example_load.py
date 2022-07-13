@@ -1,7 +1,14 @@
 import SRDB
 
-my_big_dict = SRDB.root["my_big_dict"]
-print(my_big_dict["foo"])
-print(my_big_dict["bar"])
+print(SRDB.root)
+SRDB.root["foo"] = 1
+SRDB.save_pending()
+exit()
+SRDB.root["foo"] = {}
+print(SRDB.root.refcount)
+print(my_dict.refcount)
 
-# SRDB.save_pending()
+SRDB.root["bar"] = {}
+print(SRDB.root.refcount)
+print(my_dict.refcount)
+

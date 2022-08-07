@@ -6,4 +6,4 @@ if False:
     SRDB.root["snd"] = 3
     SRDB.save_pending()
 else:
-    print(SRDB.root['my_table'].get('world'))
+    print(SRDB.root['my_table'].get_value('world'))

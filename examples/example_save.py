@@ -13,20 +13,20 @@ def f1():
     SRDB.root['fst'] = fst_dict
     SRDB.root['snd'] = snd_dict
     SRDB.root['my_table'] = SRDB.Table()
-    SRDB.SAVE_PENDING()
+    SRDB.save_pending()
 
 def f2():
-    SRDB.root['my_table'].SET('hello', SRDB.root['fst'])
+    SRDB.root['my_table'].set_value('hello', SRDB.root['fst'])
 
 def f3():
-    SRDB.root['my_table'].SET('hello', [3, 4, 5])
+    SRDB.root['my_table'].set_value('hello', [3, 4, 5])
 
 def f4():
-    SRDB.root['my_table'].SET('world', [1, 2])
-    SRDB.root['my_table'].SET('lol', SRDB.Dict({'y': 1, 'z': 8}))
+    SRDB.root['my_table'].set_value('world', [1, 2])
+    SRDB.root['my_table'].set_value('lol', SRDB.Dict({'y': 1, 'z': 8}))
 
 def f5():
-    x = SRDB.root['my_table'].get('hello')
+    x = SRDB.root['my_table'].get_value('hello')
     print(x, type(x))
 
 # f1()

@@ -1,7 +1,11 @@
+# Used
 import secrets
 import os
 import hashlib
 import shutil
+
+# Unused
+import datetime
 
 # id sizes
 ID_SIZE_IN_BITS  = 128
@@ -32,6 +36,9 @@ def save_pending():
     while save_set:
         stateful = save_set.pop()
         stateful.save()
+
+def evaluate(foo):
+    return eval(foo)
 
 class Stateful:
 
@@ -139,7 +146,7 @@ class Dict(Stateful):
             stateful_child.incr_refcount()
 
     def assemble_contents_from_data(self, data):
-        self.dict = eval(data)
+        self.dict = evaluate(data)
 
     def stateful_children(self):
         self.load_contents_if_necessary()
@@ -181,7 +188,7 @@ class Table(Dict):
                 long_filename = os.path.join(self.dir_path, short_filename)
                 with open(long_filename) as file:
                     data = file.read()
-                    obj = eval(data)
+                    obj = evaluate(data)
                     if isinstance(obj, Stateful):
                         yield obj
         return new_generator()
@@ -208,7 +215,7 @@ class Table(Dict):
         except Exception:
             raise KeyError
         else:
-            return eval(data)
+            return evaluate(data)
 
     def set_value(self, key, value):
         assert isinstance(key, str)
